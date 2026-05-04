@@ -141,6 +141,11 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<!-- Activate the test Spring profile so application-test.yml overrides apply
+					     to every @SpringBootTest without per-class @ActiveProfiles annotations. -->
+					<argLine>-Dspring.profiles.active=test @{argLine}</argLine>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>

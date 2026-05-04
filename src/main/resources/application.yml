@@ -1,0 +1,91 @@
+# Document Management Service — main configuration.
+# All sensitive values come from environment variables (ADR-0008).
+# Test overrides live in application-test.yml; activated via Surefire.
+
+spring:
+  application:
+    name: document-management-service
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRESQL_HOST:localhost}:${POSTGRESQL_PORT:5432}/${POSTGRESQL_DATABASE:challenge}?currentSchema=document_schema
+    username: ${POSTGRESQL_USERNAME}
+    password: ${POSTGRESQL_PASSWORD}
+    hikari:
+      pool-name: dms-pg-pool
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 10000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: document_schema
+        jdbc.fetch_size: 20
+        order_inserts: true
+        order_updates: true
+
+  # Streaming multipart parser (ADR-0002) — Spring's default resolver is disabled.
+  servlet:
+    multipart:
+      enabled: false
+
+  mvc:
+    async:
+      request-timeout: -1                       # ADR-0005 — no MVC async timeout
+
+server:
+  port: ${SERVER_PORT:8080}
+  tomcat:
+    threads:
+      max: 20                                   # ADR-0005 — 10 uploads + headroom
+      min-spare: 5
+    max-connections: 200
+    accept-count: 50
+    connection-timeout: 20000
+    keep-alive-timeout: 15000
+    max-http-form-post-size: -1
+    max-swallow-size: -1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs
+
+app:
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    public-endpoint: ${MINIO_PUBLIC_ENDPOINT:${MINIO_ENDPOINT:http://localhost:9000}}
+    access-key: ${MINIO_ACCESS_KEY}
+    secret-key: ${MINIO_SECRET_KEY}
+    bucket: ${MINIO_BUCKET:document-bucket}
+    presigned:
+      ttl-seconds: ${APP_PRESIGNED_TTL_SECONDS:900}
+  upload:
+    max-size-bytes: ${APP_UPLOAD_MAX_SIZE_BYTES:524288000}
+    enforce-pdf-magic: ${APP_UPLOAD_ENFORCE_PDF_MAGIC:true}
+
+logging:
+  level:
+    root: INFO
+    com.clara.ops.challenge: INFO
+    org.springframework.web: INFO
+    org.hibernate: WARN

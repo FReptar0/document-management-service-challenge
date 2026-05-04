@@ -1,0 +1,36 @@
+# Test profile overrides. Activated by Surefire (spring.profiles.active=test) so any
+# @SpringBootTest picks them up automatically — no @ActiveProfiles annotations needed.
+# DataSource is provided by Testcontainers (Docker-managed Postgres per JVM).
+
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:15-alpine:///challenge_test?TC_DAEMON=true
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: test
+    password: test
+
+  jpa:
+    hibernate:
+      ddl-auto: none                            # Phase 3+ tests will use Testcontainers init scripts
+    properties:
+      hibernate:
+        default_schema: public                  # vanilla postgres image; no document_schema yet
+
+app:
+  minio:
+    endpoint: http://localhost:9000
+    public-endpoint: http://localhost:9000
+    access-key: testaccess
+    secret-key: testsecretkey1234
+    bucket: test-bucket
+    presigned:
+      ttl-seconds: 600
+  upload:
+    max-size-bytes: 1048576                     # 1 MB cap for unit/slice tests
+    enforce-pdf-magic: false
+
+logging:
+  level:
+    root: WARN
+    com.clara.ops.challenge: INFO
+    org.testcontainers: INFO
