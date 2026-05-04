@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Profile-conditional logging:
+    - default (no `test` profile): JSON via logstash-encoder, ready for shipping into ELK/Loki.
+    - `test` profile: human-readable text so test failures stay greppable in CI logs.
+  In both cases requestId from MDC is included so traces correlate with the X-Request-Id header.
+-->
+<configuration>
+
+  <springProfile name="!test">
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+        <includeMdcKeyName>requestId</includeMdcKeyName>
+        <customFields>{"app":"document-management-service"}</customFields>
+      </encoder>
+    </appender>
+
+    <root level="INFO">
+      <appender-ref ref="JSON"/>
+    </root>
+
+    <logger name="com.clara.ops.challenge" level="INFO"/>
+    <logger name="org.hibernate" level="WARN"/>
+  </springProfile>
+
+  <springProfile name="test">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{requestId:-}] - %msg%n</pattern>
+      </encoder>
+    </appender>
+
+    <root level="WARN">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <logger name="com.clara.ops.challenge" level="INFO"/>
+  </springProfile>
+
+</configuration>

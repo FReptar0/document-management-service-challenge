@@ -7,7 +7,6 @@ import com.clara.ops.challenge.dms.application.SearchDocumentsUseCase;
 import com.clara.ops.challenge.dms.application.UploadDocumentUseCase;
 import com.clara.ops.challenge.dms.application.UploadDocumentUseCase.UploadCommand;
 import com.clara.ops.challenge.dms.domain.Document;
-import com.clara.ops.challenge.dms.domain.exception.DocumentNotFoundException;
 import com.clara.ops.challenge.dms.infrastructure.web.dto.DocumentDownloadUrlResponse;
 import com.clara.ops.challenge.dms.infrastructure.web.dto.DocumentResponse;
 import com.clara.ops.challenge.dms.infrastructure.web.dto.DocumentSearchFiltersRequest;
@@ -38,14 +37,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -92,12 +89,6 @@ public class DocumentController {
   @GetMapping(value = "/download/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
   public DocumentDownloadUrlResponse download(@PathVariable("id") UUID id) {
     return new DocumentDownloadUrlResponse(downloadUseCase.execute(id));
-  }
-
-  @ExceptionHandler(DocumentNotFoundException.class)
-  @ResponseStatus(HttpStatus.NOT_FOUND)
-  public java.util.Map<String, String> handleDocumentNotFound(DocumentNotFoundException e) {
-    return java.util.Map.of("error", "document_not_found", "documentId", e.documentId().toString());
   }
 
   @PostMapping(

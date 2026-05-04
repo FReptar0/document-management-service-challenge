@@ -29,8 +29,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Full-stack integration test for {@code GET /document-management/download/{id}}: persists a
- * document via the repository, writes the bytes via the storage port, then fetches a presigned
- * URL through the HTTP API and confirms the URL serves the same payload.
+ * document via the repository, writes the bytes via the storage port, then fetches a presigned URL
+ * through the HTTP API and confirms the URL serves the same payload.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
@@ -86,7 +86,8 @@ class DownloadEndpointIntegrationTest {
     HttpResponse<String> resp =
         http.send(
             HttpRequest.newBuilder(
-                    URI.create("http://localhost:" + port + "/document-management/download/" + documentId))
+                    URI.create(
+                        "http://localhost:" + port + "/document-management/download/" + documentId))
                 .GET()
                 .build(),
             HttpResponse.BodyHandlers.ofString());
@@ -105,15 +106,28 @@ class DownloadEndpointIntegrationTest {
   }
 
   @Test
-  void returns_404_when_document_does_not_exist() throws Exception {
+  void returns_404_with_problem_detail_and_request_id_echo() throws Exception {
+    UUID missing = UUID.randomUUID();
     HttpResponse<String> resp =
         http.send(
             HttpRequest.newBuilder(
                     URI.create(
-                        "http://localhost:" + port + "/document-management/download/" + UUID.randomUUID()))
+                        "http://localhost:" + port + "/document-management/download/" + missing))
+                .header("X-Request-Id", "trace-abc-123")
                 .GET()
                 .build(),
             HttpResponse.BodyHandlers.ofString());
+
     assertThat(resp.statusCode()).isEqualTo(404);
+    assertThat(resp.headers().firstValue("X-Request-Id"))
+        .as("filter echoes the inbound correlation id")
+        .contains("trace-abc-123");
+
+    JsonNode pd = json.readTree(resp.body());
+    assertThat(pd.get("status").asInt()).isEqualTo(404);
+    assertThat(pd.get("title").asText()).isEqualTo("Document not found");
+    assertThat(pd.get("documentId").asText()).isEqualTo(missing.toString());
+    assertThat(pd.get("requestId").asText()).isEqualTo("trace-abc-123");
+    assertThat(pd.get("path").asText()).contains("/document-management/download/");
   }
 }
