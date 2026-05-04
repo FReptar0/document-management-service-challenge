@@ -9,12 +9,30 @@ A Spring Boot 3.4 / Java 17 service that uploads, searches, and downloads PDFs u
 ## Quick start
 
 ```bash
-cp .env.example .env                 # fill in any placeholders if needed
-docker compose -f docker/docker-compose.yml up --build
-curl http://localhost:8080/actuator/health   # → {"status":"UP"}
+./run.sh           # build + start the stack, wait until /actuator/health is UP
+./run.sh smoke     # upload a tiny PDF and round-trip via the presigned URL
+./run.sh down      # tear down (also wipes volumes)
+./run.sh logs      # tail logs (optionally pass a service name)
 ```
 
-The OpenAPI UI is exposed at `http://localhost:8080/swagger-ui.html`. Configuration knobs (heap size, presigned-URL TTL, max upload size, PDF magic-byte enforcement) are in `.env.example`.
+The script copies `.env.example` to `.env` if it is missing, so a fresh clone needs no manual setup. Once UP:
+
+- **API base:** `http://localhost:8080`
+- **Swagger UI:** `http://localhost:8080/swagger-ui.html`
+- **MinIO console:** `http://localhost:9001` (creds in `.env`)
+
+Equivalent without the helper:
+
+```bash
+cp .env.example .env
+docker compose -f docker/docker-compose.yml --env-file .env up --build
+```
+
+Configuration knobs (heap size, presigned-URL TTL, max upload size, PDF magic-byte enforcement) live in `.env.example`.
+
+## Postman
+
+A ready-to-import collection lives under [`docs/postman/`](docs/postman/) — seven canonical requests with `pm.test` assertions and a chained `lastDocumentId` variable so search → download flows without manual editing. Pair the collection with the matching environment file (defaults to `http://localhost:8080`).
 
 ## Run the test suite
 
@@ -22,7 +40,11 @@ The OpenAPI UI is exposed at `http://localhost:8080/swagger-ui.html`. Configurat
 ./mvnw verify
 ```
 
-35 tests across unit and integration layers. Integration tests spin up Postgres and MinIO via Testcontainers — Docker must be running. Includes a 10-way concurrent upload stress test that fires 10 × 10 MB streams simultaneously.
+36 tests across unit and integration layers. Integration tests spin up Postgres and MinIO via Testcontainers — Docker must be running. Highlights:
+
+- **10-way concurrent upload stress test** — 10 × 10 MB streams in parallel, asserts every request returns 201 and every row lands.
+- **Tag normalization E2E** — three uploads with `Finance`/`FINANCE`/`"  finance  "` collapse to a single dictionary row and all three are findable via the canonical name.
+- **Full lifecycle E2E** — upload → search → download → fetch presigned URL, byte-identical round-trip.
 
 ## API contract
 
@@ -56,12 +78,12 @@ Twelve ADRs in [`.planning/ADRs/`](.planning/ADRs) document each design decision
 - **0002** — streaming uploads bypass Spring's multipart resolver via `commons-fileupload2-jakarta` so the heap stays bounded.
 - **0004** — two `MinioClient` beans so presigned URLs are signed against the public host the client will reach.
 - **0011** — multipart deviation from the OpenAPI JSON-only upload.
-- **0012** — container memory (256 MB) is intentionally larger than heap (50 MB); a literal 50 MB container OOMs the JVM before it boots.
+- **0012** — container memory (384 MB) is intentionally larger than heap (50 MB); a literal 50 MB container OOMs the JVM before it boots.
 
 ## Deviations from the brief
 
 1. **Upload is multipart, not JSON.** A 500 MB PDF cannot be base64-encoded in JSON inside a 50 MB heap; the OpenAPI spec is interpreted as incomplete. Documented in ADR-0011 and the local OpenAPI YAML.
-2. **Container memory is 256 MB, JVM heap is 50 MB.** The README phrases the cap as "50 MB assigned to the document management service container," which would OOM the JVM before launch. The hard constraint that matters in practice is the JVM heap, which is held at 50 MB via `JAVA_OPTS=-Xmx50m -Xms50m -XX:+ExitOnOutOfMemoryError`. Documented in ADR-0012.
+2. **Container memory is 384 MB, JVM heap is 50 MB.** The README phrases the cap as "50 MB assigned to the document management service container," which would OOM the JVM before launch. The hard constraint that matters in practice is the JVM heap, which is held at 50 MB via `JAVA_OPTS=-Xmx50m -Xms50m -XX:+ExitOnOutOfMemoryError -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=48m`. The container budget covers metaspace (Spring + Hibernate + springdoc), code cache, threads, and native heap on top of the 50 MB Java heap. Documented in ADR-0012.
 3. **Postgres image is `bitnamilegacy/postgresql:15.4.0`.** Bitnami removed old patch tags from `bitnami/postgresql` in 2024; the legacy registry is the byte-identical mirror. Documented in `.planning/GOTCHAS.md`.
 
 ## Run locally without Docker
