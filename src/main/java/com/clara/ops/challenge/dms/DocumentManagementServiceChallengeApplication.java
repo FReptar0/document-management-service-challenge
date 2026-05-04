@@ -1,4 +1,4 @@
-package com.clara.ops.challenge.document_management_service_challenge;
+package com.clara.ops.challenge.dms;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
