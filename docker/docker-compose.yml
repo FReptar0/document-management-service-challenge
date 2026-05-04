@@ -89,19 +89,19 @@ services:
       APP_PRESIGNED_TTL_SECONDS: ${APP_PRESIGNED_TTL_SECONDS:-900}
       APP_UPLOAD_MAX_SIZE_BYTES: ${APP_UPLOAD_MAX_SIZE_BYTES:-524288000}
       APP_UPLOAD_ENFORCE_PDF_MAGIC: ${APP_UPLOAD_ENFORCE_PDF_MAGIC:-true}
-      JAVA_OPTS: ${JAVA_OPTS:--Xmx50m -Xms50m -XX:+ExitOnOutOfMemoryError -XX:MaxMetaspaceSize=64m}
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx50m -Xms50m -XX:+ExitOnOutOfMemoryError -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=48m}
     deploy:
       resources:
         limits:
           # Heap is fixed at 50 MB via JAVA_OPTS (README §"Memory Limitation").
-          # Container memory must include the JVM's metaspace, code cache, JIT workspace,
-          # native heap, and per-thread stacks on top of the heap. Setting this to 50M
-          # OOM-kills the JVM during class loading; 256M is the empirical minimum that
-          # lets a Spring Boot 3.4 app boot. Trade-off documented in ADR-0012.
-          memory: 256M
+          # Container memory must include the JVM's metaspace (Spring Boot 3.4 + Hibernate +
+          # springdoc need ~120 MB), code cache, JIT workspace, native heap, and per-thread
+          # stacks on top of the heap. 384M is the empirical minimum that boots without
+          # tripping a Metaspace OOM during class loading. Trade-off documented in ADR-0012.
+          memory: 384M
     # mem_limit duplicates deploy.resources.limits.memory for compose v2 native enforcement
     # (deploy.* is canonical for swarm mode; mem_limit is the v2 native equivalent).
-    mem_limit: 256m
+    mem_limit: 384m
 
 volumes:
   challenge_postgresql_data:
