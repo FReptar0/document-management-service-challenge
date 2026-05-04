@@ -1,5 +1,6 @@
 package com.clara.ops.challenge.dms.infrastructure.config;
 
+import com.clara.ops.challenge.dms.application.SearchDocumentsUseCase;
 import com.clara.ops.challenge.dms.application.UploadDocumentUseCase;
 import com.clara.ops.challenge.dms.domain.port.DocumentRepository;
 import com.clara.ops.challenge.dms.domain.port.DocumentStoragePort;
@@ -17,5 +18,10 @@ public class UseCaseConfiguration {
   public UploadDocumentUseCase uploadDocumentUseCase(
       DocumentStoragePort storage, DocumentRepository repository) {
     return new UploadDocumentUseCase(storage, repository);
+  }
+
+  @Bean
+  public SearchDocumentsUseCase searchDocumentsUseCase(DocumentRepository repository) {
+    return new SearchDocumentsUseCase(repository);
   }
 }

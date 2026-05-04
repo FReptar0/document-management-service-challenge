@@ -1,9 +1,14 @@
 package com.clara.ops.challenge.dms.infrastructure.web;
 
+import com.clara.ops.challenge.dms.application.PageResult;
+import com.clara.ops.challenge.dms.application.SearchCriteria;
+import com.clara.ops.challenge.dms.application.SearchDocumentsUseCase;
 import com.clara.ops.challenge.dms.application.UploadDocumentUseCase;
 import com.clara.ops.challenge.dms.application.UploadDocumentUseCase.UploadCommand;
 import com.clara.ops.challenge.dms.domain.Document;
 import com.clara.ops.challenge.dms.infrastructure.web.dto.DocumentResponse;
+import com.clara.ops.challenge.dms.infrastructure.web.dto.DocumentSearchFiltersRequest;
+import com.clara.ops.challenge.dms.infrastructure.web.dto.PaginatedDocumentSearchResponse;
 import com.clara.ops.challenge.dms.infrastructure.web.dto.UploadMetadataRequest;
 import com.clara.ops.challenge.dms.infrastructure.web.multipart.InvalidMetadataException;
 import com.clara.ops.challenge.dms.infrastructure.web.multipart.MissingMultipartPartException;
@@ -30,7 +35,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -50,6 +57,7 @@ public class DocumentController {
   private static final String DEFAULT_FILE_CONTENT_TYPE = "application/pdf";
 
   private final UploadDocumentUseCase uploadUseCase;
+  private final SearchDocumentsUseCase searchUseCase;
   private final MultipartStreamReader multipartReader;
   private final ObjectMapper objectMapper;
   private final Validator validator;
@@ -57,15 +65,38 @@ public class DocumentController {
 
   public DocumentController(
       UploadDocumentUseCase uploadUseCase,
+      SearchDocumentsUseCase searchUseCase,
       MultipartStreamReader multipartReader,
       ObjectMapper objectMapper,
       Validator validator,
       UploadProperties uploadProperties) {
     this.uploadUseCase = uploadUseCase;
+    this.searchUseCase = searchUseCase;
     this.multipartReader = multipartReader;
     this.objectMapper = objectMapper;
     this.validator = validator;
     this.uploadProperties = uploadProperties;
+  }
+
+  @PostMapping(
+      value = "/search",
+      consumes = MediaType.APPLICATION_JSON_VALUE,
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  public PaginatedDocumentSearchResponse search(
+      @RequestBody(required = false) DocumentSearchFiltersRequest filters,
+      @RequestParam(name = "page", defaultValue = "0") int page,
+      @RequestParam(name = "size", defaultValue = "20") int size) {
+    if (page < 0) {
+      throw new IllegalArgumentException("page must be >= 0");
+    }
+    if (size < 1 || size > 100) {
+      throw new IllegalArgumentException("size must be between 1 and 100");
+    }
+    DocumentSearchFiltersRequest f =
+        filters != null ? filters : new DocumentSearchFiltersRequest(null, null, null);
+    SearchCriteria criteria = new SearchCriteria(f.userId(), f.name(), f.tags());
+    PageResult<Document> result = searchUseCase.execute(criteria, page, size);
+    return PaginatedDocumentSearchResponse.from(result);
   }
 
   @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

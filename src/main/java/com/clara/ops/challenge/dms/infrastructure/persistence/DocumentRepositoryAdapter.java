@@ -1,5 +1,7 @@
 package com.clara.ops.challenge.dms.infrastructure.persistence;
 
+import com.clara.ops.challenge.dms.application.PageResult;
+import com.clara.ops.challenge.dms.application.SearchCriteria;
 import com.clara.ops.challenge.dms.domain.Document;
 import com.clara.ops.challenge.dms.domain.Tag;
 import com.clara.ops.challenge.dms.domain.port.DocumentRepository;
@@ -9,10 +11,15 @@ import com.clara.ops.challenge.dms.infrastructure.persistence.jpa.DocumentJpaRep
 import com.clara.ops.challenge.dms.infrastructure.persistence.jpa.TagJpaRepository;
 import com.clara.ops.challenge.dms.infrastructure.persistence.mapper.DocumentEntityMapper;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +54,20 @@ public class DocumentRepositoryAdapter implements DocumentRepository {
   @Transactional(readOnly = true)
   public Optional<Document> findById(UUID id) {
     return documentJpa.findById(id).map(DocumentEntityMapper::toDomain);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public PageResult<Document> search(SearchCriteria criteria, int page, int size) {
+    Specification<DocumentEntity> spec =
+        Specification.allOf(
+            DocumentSpecifications.userIdEquals(criteria.userId()),
+            DocumentSpecifications.nameContainsIgnoreCase(criteria.namePattern()),
+            DocumentSpecifications.hasAnyTag(criteria.tagNames()));
+    PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+    Page<DocumentEntity> result = documentJpa.findAll(spec, pageRequest);
+    List<Document> docs = result.stream().map(DocumentEntityMapper::toDomain).toList();
+    return new PageResult<>(docs, page, size, result.getTotalElements());
   }
 
   /**
