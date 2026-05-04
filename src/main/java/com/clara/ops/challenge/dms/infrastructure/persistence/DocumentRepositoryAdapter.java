@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -71,19 +70,25 @@ public class DocumentRepositoryAdapter implements DocumentRepository {
   }
 
   /**
-   * Idempotent tag insertion. If two transactions race on the same new tag, the loser catches the
-   * UNIQUE violation and re-reads the winner's row.
+   * Race-safe tag insertion. The first {@code findByName} short-circuits the common case (cached
+   * tags). On a miss we fall through to {@code INSERT … ON CONFLICT DO NOTHING}, which never throws
+   * under concurrent inserts — the previous catch/retry approach corrupted the Hibernate session
+   * under load (HHH000099 "null id in TagEntity entry"). After the insert, a second {@code
+   * findByName} reads the canonical row regardless of whether we or another transaction was the
+   * writer.
    */
   private TagEntity upsertTag(Tag tag) {
     return tagJpa
         .findByName(tag.name())
         .orElseGet(
             () -> {
-              try {
-                return tagJpa.save(new TagEntity(tag.name()));
-              } catch (DataIntegrityViolationException e) {
-                return tagJpa.findByName(tag.name()).orElseThrow(() -> e);
-              }
+              tagJpa.insertIfAbsent(tag.name());
+              return tagJpa
+                  .findByName(tag.name())
+                  .orElseThrow(
+                      () ->
+                          new IllegalStateException(
+                              "Tag '" + tag.name() + "' missing after insertIfAbsent"));
             });
   }
 }
