@@ -1,0 +1,11 @@
+# Whitelist build context — everything excluded except what the Dockerfile needs.
+*
+!pom.xml
+!src/
+
+# Belt-and-suspenders: never include secrets or local artifacts even if a future change
+# adds them under src/.
+**/.env
+**/.env.*
+**/target/
+**/*.log

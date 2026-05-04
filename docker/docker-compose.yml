@@ -1,41 +1,104 @@
+# Document Management Service stack — local development.
+#
+# Boot from repo root:
+#   cp .env.example .env
+#   docker compose -f docker/docker-compose.yml --env-file .env up --build
+#
+# Tear down (preserves volumes):  docker compose -f docker/docker-compose.yml down
+# Tear down + wipe data:          docker compose -f docker/docker-compose.yml down -v
+# (Schema-init scripts only re-run after a `down -v`; see GOTCHAS.)
+
 services:
   postgresql:
-    container_name: postgresql_container
     image: bitnami/postgresql:15.4.0
+    container_name: dms_postgres
+    restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "${POSTGRESQL_PORT:-5432}:5432"
     networks:
-      - batch_network
+      - dms_network
     volumes:
       - challenge_postgresql_data:/bitnami/postgresql
       - ./init-scripts:/docker-entrypoint-initdb.d
     environment:
-      - POSTGRESQL_USERNAME={CHANGE_ME}
-      - POSTGRESQL_PASSWORD={CHANGE_ME}
-      - POSTGRESQL_DATABASE=challenge
-      - POSTGRESQL_POSTGRES_PASSWORD={CHANGE_ME} # Password of user "postgres"
+      POSTGRESQL_USERNAME: ${POSTGRESQL_USERNAME}
+      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD}
+      POSTGRESQL_DATABASE: ${POSTGRESQL_DATABASE}
+      POSTGRESQL_POSTGRES_PASSWORD: ${POSTGRESQL_POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRESQL_USERNAME} -d ${POSTGRESQL_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   minio:
     image: minio/minio:latest
-    container_name: minio
-    restart: always
+    container_name: dms_minio
+    restart: unless-stopped
     ports:
-      - "9000:9000"  # API S3
-      - "9001:9001"  # MinIO Web Console
+      - "9000:9000"   # S3-compatible API
+      - "9001:9001"   # Web Console
+    networks:
+      - dms_network
     environment:
-      MINIO_ROOT_USER: {CHANGE_ME}
-      MINIO_ROOT_PASSWORD: {CHANGE_ME}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server --console-address ":9001" /data
     volumes:
       - challenge_minio_data:/data
-  # Include all the necessary settings to include a document management service in the stack
-  # Remember to configure this service to limit the memory to 50MB
-  # document-management-service:
-  #    environment:
-  #      - JAVA_OPTS=-Xmx50m -Xms50m
-  #    deploy:
-  #      resources:
-  #        limits:
-  #          memory: 50M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  document-management-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: dms/document-management-service:local
+    container_name: dms_app
+    restart: unless-stopped
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    networks:
+      - dms_network
+    environment:
+      # Service-to-infra over the compose network.
+      POSTGRESQL_HOST: postgresql
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_DATABASE: ${POSTGRESQL_DATABASE}
+      POSTGRESQL_USERNAME: ${POSTGRESQL_USERNAME}
+      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
+      # App-level keys default to the root user/password if unset in .env.
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-${MINIO_ROOT_USER}}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-${MINIO_ROOT_PASSWORD}}
+      MINIO_BUCKET: ${MINIO_BUCKET:-document-bucket}
+      APP_PRESIGNED_TTL_SECONDS: ${APP_PRESIGNED_TTL_SECONDS:-900}
+      APP_UPLOAD_MAX_SIZE_BYTES: ${APP_UPLOAD_MAX_SIZE_BYTES:-524288000}
+      APP_UPLOAD_ENFORCE_PDF_MAGIC: ${APP_UPLOAD_ENFORCE_PDF_MAGIC:-true}
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx50m -Xms50m -XX:+ExitOnOutOfMemoryError -XX:MaxMetaspaceSize=64m}
+    deploy:
+      resources:
+        limits:
+          # Heap is fixed at 50 MB via JAVA_OPTS (README §"Memory Limitation").
+          # Container memory must include the JVM's metaspace, code cache, JIT workspace,
+          # native heap, and per-thread stacks on top of the heap. Setting this to 50M
+          # OOM-kills the JVM during class loading; 256M is the empirical minimum that
+          # lets a Spring Boot 3.4 app boot. Trade-off documented in ADR-0012.
+          memory: 256M
+    # mem_limit duplicates deploy.resources.limits.memory for compose v2 native enforcement
+    # (deploy.* is canonical for swarm mode; mem_limit is the v2 native equivalent).
+    mem_limit: 256m
 
 volumes:
   challenge_postgresql_data:
@@ -44,5 +107,5 @@ volumes:
     driver: local
 
 networks:
-  batch_network:
+  dms_network:
     driver: bridge
