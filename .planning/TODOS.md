@@ -40,8 +40,8 @@
 - [x] Write multi-stage `Dockerfile` (cached deps layer, Temurin JRE 17, non-root user)
 - [x] `.env.example` with every required var
 - [x] ADR-0012: container memory headroom above heap (deviation documented)
-- [ ] `docker compose up --build` boots clean; `/actuator/health` returns 200 — **smoke test pending**
-- [x] Commits — split into atomic units (`chore(deps)`, `feat(config)`, `chore(config)`, `feat(infra)`, `docs(adr)`)
+- [x] `docker compose up --build` boots clean; `/actuator/health` returns `{"status":"UP"}` (verified 2026-05-04)
+- [x] Commits — split into atomic units (`chore(deps)`, `feat(config)`, `chore(config)`, `feat(infra)`, `docs(adr)`, `fix(infra)`)
 
 ## Phase 2 — Schema
 - [ ] Design + write `docker/init-scripts/schema-init.sql`
