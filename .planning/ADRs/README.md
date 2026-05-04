@@ -17,6 +17,7 @@ This directory captures every non-trivial design decision for the Document Manag
 | 0009 | Jakarta Bean Validation + dedicated DTOs at the web edge | Accepted |
 | 0010 | Structured logging with MDC, Actuator health, Springdoc OpenAPI UI | Accepted |
 | 0011 | Upload accepts multipart/form-data (deviates from OpenAPI's application/json) | Accepted |
+| 0012 | Container memory limit set above heap to allow JVM startup overhead | Accepted |
 
 ## Conventions
 

@@ -24,23 +24,24 @@
 - [ ] First commit: `chore(docs): bootstrap planning artifacts (CLAUDE.md, ADRs, roadmap)`
 
 ## Phase 1 — Foundation
-- [ ] `src/main/resources/application.yml` (datasource, JPA, MinIO, multipart, server, logging)
-- [ ] `src/main/resources/application-test.yml` (Testcontainers profile)
-- [ ] Add `org.springframework.boot:spring-boot-starter-validation`
-- [ ] Add `org.springframework.boot:spring-boot-starter-actuator`
-- [ ] Add `org.springdoc:springdoc-openapi-starter-webmvc-ui`
-- [ ] Add `org.apache.commons:commons-fileupload2-jakarta`
-- [ ] Add `net.logstash.logback:logstash-logback-encoder`
-- [ ] Add Testcontainers BOM + `postgresql` + `minio` modules + `junit-jupiter`
-- [ ] Bump `io.minio:minio` to 8.5.7+
-- [ ] Dedupe duplicated JaCoCo plugin block in pom.xml
-- [ ] Exclude `spring-boot-devtools` from `spring-boot-maven-plugin` build image
-- [ ] Replace `{CHANGE_ME}` literals in `docker/docker-compose.yml` with `${VAR}` interpolation
-- [ ] Uncomment + complete `document-management-service` block (memory `50M`, env, depends_on, healthcheck)
-- [ ] Write multi-stage `Dockerfile` (cached deps layer, Temurin JRE 17, non-root user)
-- [ ] `.env.example` with every required var
-- [ ] `docker compose up --build` boots clean; `/actuator/health` returns 200
-- [ ] Commit: `feat(infra): bootstrap stack — Dockerfile, compose, application.yml`
+- [x] `src/main/resources/application.yml` (datasource, JPA, MinIO, multipart, server, logging)
+- [x] `src/main/resources/application-test.yml` (Testcontainers profile via Surefire argLine)
+- [x] Add `org.springframework.boot:spring-boot-starter-validation`
+- [x] Add `org.springframework.boot:spring-boot-starter-actuator`
+- [x] Add `org.springdoc:springdoc-openapi-starter-webmvc-ui`
+- [x] Add `org.apache.commons:commons-fileupload2-jakarta-servlet6`
+- [x] Add `net.logstash.logback:logstash-logback-encoder`
+- [x] Add Testcontainers BOM + `postgresql` + `minio` modules + `junit-jupiter`
+- [x] Bump `io.minio:minio` to 8.5.7
+- [x] Dedupe duplicated JaCoCo plugin block in pom.xml
+- [x] Exclude `spring-boot-devtools` from `spring-boot-maven-plugin` build image
+- [x] Replace `{CHANGE_ME}` literals in `docker/docker-compose.yml` with `${VAR}` interpolation
+- [x] Uncomment + complete `document-management-service` block (memory cap per ADR-0012, env, depends_on healthchecks)
+- [x] Write multi-stage `Dockerfile` (cached deps layer, Temurin JRE 17, non-root user)
+- [x] `.env.example` with every required var
+- [x] ADR-0012: container memory headroom above heap (deviation documented)
+- [ ] `docker compose up --build` boots clean; `/actuator/health` returns 200 — **smoke test pending**
+- [x] Commits — split into atomic units (`chore(deps)`, `feat(config)`, `chore(config)`, `feat(infra)`, `docs(adr)`)
 
 ## Phase 2 — Schema
 - [ ] Design + write `docker/init-scripts/schema-init.sql`
