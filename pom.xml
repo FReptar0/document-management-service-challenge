@@ -137,6 +137,21 @@
 
 	<build>
 		<finalName>${project.artifact.name}-${project.version}-${build.number}</finalName>
+		<testResources>
+			<testResource>
+				<directory>${project.basedir}/src/test/resources</directory>
+			</testResource>
+			<!-- Single source of truth: copy the production schema script onto the test classpath
+			     so spring.sql.init and Hibernate's validate run against the same DDL the Docker
+			     stack uses. Eliminates schema/entity drift. -->
+			<testResource>
+				<directory>${project.basedir}/docker/init-scripts</directory>
+				<targetPath>db</targetPath>
+				<includes>
+					<include>schema-init.sql</include>
+				</includes>
+			</testResource>
+		</testResources>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>

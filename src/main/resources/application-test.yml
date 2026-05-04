@@ -11,10 +11,16 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none                            # Phase 3+ tests will use Testcontainers init scripts
+      ddl-auto: validate                        # entities must match the DDL applied by sql.init
     properties:
       hibernate:
-        default_schema: public                  # vanilla postgres image; no document_schema yet
+        default_schema: document_schema         # aligned with prod; created by schema-init.sql
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema-init.sql
+      continue-on-error: false
 
 app:
   minio:
