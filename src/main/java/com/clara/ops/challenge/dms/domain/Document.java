@@ -47,12 +47,7 @@ public final class Document {
 
   /** Build a new {@code Document} for upload — assigns a fresh UUID and {@code Instant.now()}. */
   public static Document create(
-      String userId,
-      String name,
-      String objectKey,
-      long fileSize,
-      String fileType,
-      Set<Tag> tags) {
+      String userId, String name, String objectKey, long fileSize, String fileType, Set<Tag> tags) {
     return new Document(
         UUID.randomUUID(), userId, name, objectKey, fileSize, fileType, tags, Instant.now());
   }

@@ -26,14 +26,14 @@ public interface DocumentStoragePort {
 
   /**
    * Generate a short-lived URL that allows a {@code GET} on {@code objectKey} without service
-   * involvement. Default TTL is configured via {@code app.minio.presigned.ttl-seconds}; callers
-   * may pass an explicit override.
+   * involvement. Default TTL is configured via {@code app.minio.presigned.ttl-seconds}; callers may
+   * pass an explicit override.
    */
   String presignedGet(String objectKey, Duration ttl);
 
   /**
-   * Best-effort delete used by the upload use case to roll back a stored object when the
-   * subsequent DB write fails. Silent on missing keys.
+   * Best-effort delete used by the upload use case to roll back a stored object when the subsequent
+   * DB write fails. Silent on missing keys.
    */
   void delete(String objectKey);
 }

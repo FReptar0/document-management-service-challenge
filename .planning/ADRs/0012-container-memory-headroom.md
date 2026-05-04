@@ -5,6 +5,7 @@
 - **Tags:** memory, deployment, docker, deviation
 
 ## Context
+
 README §"Memory Limitation" states *"memory limitation of 50MB assigned to the document management service container"* and the docker-compose stub (lines 32–38) shows a literal example combining `JAVA_OPTS=-Xmx50m -Xms50m` with `deploy.resources.limits.memory: 50M`.
 
 Setting the container memory limit to 50 MB is incompatible with Spring Boot startup. The Java heap is one component of total process RAM; the JVM additionally allocates:
@@ -20,25 +21,30 @@ A 50 MB container limit OOM-kills the process during class loading, before the h
 The intent of the 50 MB constraint is to force a streaming design (`ADR-0002`); that intent is preserved by the **heap** cap, not the container cap.
 
 ## Decision
+
 - **Heap = 50 MB** via `JAVA_OPTS=-Xmx50m -Xms50m` (literal README requirement, kept verbatim in `.env.example` and the Dockerfile default).
 - **Container memory limit = 256 MB** in `docker/docker-compose.yml` (`deploy.resources.limits.memory` and the v2-native `mem_limit`).
 - The deviation is documented inline in the compose file, in this ADR, and in the submission README's "Deviations" section.
 - The streaming heap-budget regression test (`ADR-0007`) runs the JVM with `-Xmx50m` directly and asserts heap stays below 45 MB — the binding constraint is exercised independently of the container cap.
 
 ## Consequences
+
 - **Positive:** The service actually boots. The 50 MB heap constraint — the *interesting* engineering challenge — is preserved and enforced by tests.
 - **Negative:** The literal docker-compose example in the README is not matched. Reviewers comparing line-for-line will see `256M` instead of `50M`.
 - **Mitigation:** Comment in compose, ADR-0012, and a README "Deviations" section explain the trade-off and reference the heap-bounded test that proves the streaming design holds under the spirit of the 50 MB constraint.
 
 ## Alternatives considered
+
 - **`memory: 50M` literal.** OOM-kill during startup; service does not run; remaining requirements unreachable. Rejected.
 - **GraalVM native image.** Drops total memory to ~80–120 MB and could approach 50 MB with effort. Adds significant build complexity (reflection metadata for Spring + Hibernate + Jackson + MinIO SDK), longer compile times, and a learning surface for reviewers. Out of scope for the time budget; revisit if requested.
 - **CDS / AppCDS to slim startup memory.** Modest improvement (~10–20 MB savings); not enough alone to fit 50 MB.
 - **Reduce metaspace aggressively (`-XX:MaxMetaspaceSize=32m`).** Risks `OutOfMemoryError: Metaspace` mid-request as classes are lazy-loaded. Rejected.
 
 ## Links
+
 - README §"Memory Limitation"
 - `docker/docker-compose.yml` — enforcement point with inline comment
 - `Dockerfile` — JAVA_OPTS default
 - `ADR-0002` (heap budget for streaming upload)
 - `ADR-0007` (heap-bounded regression test)
+

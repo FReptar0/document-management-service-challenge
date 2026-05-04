@@ -18,8 +18,8 @@ public final class DocumentEntityMapper {
   }
 
   /**
-   * Materialize a {@code Document} from a managed {@code DocumentEntity}. Caller must invoke
-   * within an active transaction so the LAZY tags collection can be initialised.
+   * Materialize a {@code Document} from a managed {@code DocumentEntity}. Caller must invoke within
+   * an active transaction so the LAZY tags collection can be initialised.
    */
   public static Document toDomain(DocumentEntity entity) {
     Set<Tag> tags =

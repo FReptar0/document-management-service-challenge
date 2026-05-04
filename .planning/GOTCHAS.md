@@ -30,3 +30,4 @@
 - **Smoke test memory profile (Phase 1, 2026-05-04):** with `JAVA_OPTS=-Xmx50m -Xms50m -XX:MaxMetaspaceSize=64m`, the running service consumed **191 MiB / 256 MiB** container memory at idle (post-startup). Confirms ADR-0012's empirical 256 MiB minimum: heap 50 MB + metaspace ~50 MB + native/JIT/threads ~90 MB. Any future bump to deps that pulls more classes will push us past 256 — re-check at the end of Phase 8.
 - **Spring Boot 3.4 actuator's `/actuator/info` returns `{}`** by default (no info contributors). To populate it, either set `info.app.*` properties or add `git-commit-id-maven-plugin`. Acceptable for Phase 1; revisit in Phase 8.
 - **Springdoc default `/v3/api-docs` returns an empty `paths: {}` JSON** while no `@RestController` is registered. That is correct behavior — the doc reflects live mappings — but worth knowing so we don't chase a phantom bug later.
+

@@ -17,9 +17,8 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * JPA-backed implementation of the {@link DocumentRepository} port. Tag insertion is idempotent
- * via {@link #upsertTag} so concurrent uploads sharing tag names do not race on the UNIQUE
- * constraint.
+ * JPA-backed implementation of the {@link DocumentRepository} port. Tag insertion is idempotent via
+ * {@link #upsertTag} so concurrent uploads sharing tag names do not race on the UNIQUE constraint.
  */
 @Repository
 public class DocumentRepositoryAdapter implements DocumentRepository {
@@ -27,8 +26,7 @@ public class DocumentRepositoryAdapter implements DocumentRepository {
   private final DocumentJpaRepository documentJpa;
   private final TagJpaRepository tagJpa;
 
-  public DocumentRepositoryAdapter(
-      DocumentJpaRepository documentJpa, TagJpaRepository tagJpa) {
+  public DocumentRepositoryAdapter(DocumentJpaRepository documentJpa, TagJpaRepository tagJpa) {
     this.documentJpa = documentJpa;
     this.tagJpa = tagJpa;
   }

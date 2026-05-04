@@ -5,8 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Driven port for persisting and reading {@link Document} aggregates. Adapter lives in
- * {@code infrastructure/persistence}.
+ * Driven port for persisting and reading {@link Document} aggregates. Adapter lives in {@code
+ * infrastructure/persistence}.
  *
  * <p>Search/pagination operations are added in Phase 6; this Phase-3 port only exposes the upload
  * (save) and download (findById) paths.

@@ -73,8 +73,7 @@ class DocumentRepositoryAdapterTest {
             "application/pdf",
             Set.of(Tag.normalize("FINANCE"))));
 
-    long financeRows =
-        tagJpa.findAll().stream().filter(t -> "finance".equals(t.getName())).count();
+    long financeRows = tagJpa.findAll().stream().filter(t -> "finance".equals(t.getName())).count();
 
     assertThat(financeRows).as("'finance' must exist exactly once").isOne();
   }

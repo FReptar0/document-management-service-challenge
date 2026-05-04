@@ -28,15 +28,15 @@ Missing artifacts to be built: `application.yml`, `Dockerfile`, domain/web/stora
 
 ## 2. Dependencies in pom.xml (current)
 
-| Group | Artifact | Notes |
-|---|---|---|
-| `org.springframework.boot` | `spring-boot-starter-data-jpa` | Hibernate, JPA, JDBC |
-| `org.springframework.boot` | `spring-boot-starter-web` | Spring MVC, Tomcat, Jackson |
-| `org.postgresql` | `postgresql` | JDBC driver, runtime |
-| `io.minio` | `minio:8.4.3` | MinIO Java SDK (8.5.x available — bump in Phase 1) |
-| `org.springframework.boot` | `spring-boot-devtools` | Optional, runtime |
-| `org.projectlombok` | `lombok` | Boilerplate reduction |
-| `org.springframework.boot` | `spring-boot-starter-test` | JUnit 5, Mockito, AssertJ, Spring Test |
+|           Group            |            Artifact            |                       Notes                        |
+|----------------------------|--------------------------------|----------------------------------------------------|
+| `org.springframework.boot` | `spring-boot-starter-data-jpa` | Hibernate, JPA, JDBC                               |
+| `org.springframework.boot` | `spring-boot-starter-web`      | Spring MVC, Tomcat, Jackson                        |
+| `org.postgresql`           | `postgresql`                   | JDBC driver, runtime                               |
+| `io.minio`                 | `minio:8.4.3`                  | MinIO Java SDK (8.5.x available — bump in Phase 1) |
+| `org.springframework.boot` | `spring-boot-devtools`         | Optional, runtime                                  |
+| `org.projectlombok`        | `lombok`                       | Boilerplate reduction                              |
+| `org.springframework.boot` | `spring-boot-starter-test`     | JUnit 5, Mockito, AssertJ, Spring Test             |
 
 Build plugins: `spring-boot-maven-plugin`, `maven-surefire-plugin`, `maven-compiler-plugin` (Lombok APT path), `jacoco-maven-plugin:0.8.8` (declared **twice** — dedupe), `spotless-maven-plugin:2.43.0` bound to `check`.
 
@@ -94,16 +94,17 @@ Build plugins: `spring-boot-maven-plugin`, `maven-surefire-plugin`, `maven-compi
 
 ## 6. Decision queue
 
-| # | Decision | ADR |
-|---|---|---|
-| 1 | Architectural style | 0001 |
-| 2 | Streaming upload mechanics | 0002 |
-| 3 | DB schema for documents + tags | 0003 |
-| 4 | MinIO usage + presigned URL TTL | 0004 |
-| 5 | Concurrency model | 0005 |
-| 6 | Error handling shape | 0006 |
-| 7 | Testing strategy | 0007 |
-| 8 | Configuration management | 0008 |
-| 9 | Validation + DTOs | 0009 |
-| 10 | Observability | 0010 |
+| #  |                 Decision                  | ADR  |
+|----|-------------------------------------------|------|
+| 1  | Architectural style                       | 0001 |
+| 2  | Streaming upload mechanics                | 0002 |
+| 3  | DB schema for documents + tags            | 0003 |
+| 4  | MinIO usage + presigned URL TTL           | 0004 |
+| 5  | Concurrency model                         | 0005 |
+| 6  | Error handling shape                      | 0006 |
+| 7  | Testing strategy                          | 0007 |
+| 8  | Configuration management                  | 0008 |
+| 9  | Validation + DTOs                         | 0009 |
+| 10 | Observability                             | 0010 |
 | 11 | API contract deviation (multipart upload) | 0011 |
+

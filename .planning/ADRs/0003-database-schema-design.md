@@ -5,6 +5,7 @@
 - **Tags:** persistence, schema, indexing, postgres
 
 ## Context
+
 README §"Database Schema and Indexing" explicitly highlights *"the efficiency of your database schema, including the creation of indices and the management of multiple tags per document."* Documents have many tags; tags are reused across documents; search filters include any-of-tags semantics. PostgreSQL 15.4 (bitnami) is the runtime.
 
 Two main shapes considered:
@@ -12,6 +13,7 @@ Two main shapes considered:
 2. **Normalized junction** — `documents`, `tags`, `document_tags`. Verbose but standard SQL, native JPA `@ManyToMany`, easy reporting/analytics, easy uniqueness.
 
 ## Decision
+
 Use the **normalized junction model**. PostgreSQL DDL (final form will live in `docker/init-scripts/schema-init.sql`):
 
 ```sql
@@ -68,16 +70,20 @@ RETURNING id;
 (`DO NOTHING` does not return the existing row's id; we use `DO UPDATE` of the same value to force a returned row.)
 
 ## Consequences
+
 - **Positive:** Standard SQL; idiomatic JPA; rich indexing options; tag reuse is storage-efficient (one tag string, many references). Reads scale with indices, not table size.
 - **Negative:** More joins on read. Mitigated by indices; for our scale the planner picks index-only scans for tag-filtered queries.
 - **Risks:** ManyToMany is easy to misconfigure in JPA (cascade and orphan removal pitfalls). **Mitigation:** Hibernate `@ManyToMany` declared on the owning side `DocumentEntity`; tags fetched LAZY; mapping covered by a slice test.
 
 ## Alternatives considered
+
 - **`tags TEXT[] + GIN`.** Fewer joins; loses standard JPA mapping; tag uniqueness enforced application-side; harder to extend (tag color, tag created_at, etc.) — rejected for evaluator-friendliness and extensibility.
 - **`JSONB tags`.** Same downsides plus typing concerns and worse query plans.
 - **Single denormalized table.** Smallest, but no path to extension and tag analytics become a manual aggregation.
 
 ## Links
+
 - README §"Schema Management"
 - `docker/init-scripts/schema-init.sql` (this ADR's output)
 - `ADR-0009` (validation: tag normalization rules feed the UNIQUE constraint)
+

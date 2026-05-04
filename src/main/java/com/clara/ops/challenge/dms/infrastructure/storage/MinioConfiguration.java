@@ -14,8 +14,8 @@ import org.springframework.context.annotation.Primary;
  *   <li>{@code minioInternal} (default / {@link Primary}) — used for control-plane and data-plane
  *       calls between the service and MinIO over the compose network.
  *   <li>{@code minioPublic} (qualified) — used only to generate presigned URLs. The signature is
- *       computed against the URL host that the *client* will see, so we must sign with
- *       {@code app.minio.public-endpoint}, not the internal compose hostname.
+ *       computed against the URL host that the *client* will see, so we must sign with {@code
+ *       app.minio.public-endpoint}, not the internal compose hostname.
  * </ul>
  */
 @Configuration
@@ -32,8 +32,7 @@ public class MinioConfiguration {
   }
 
   @Bean
-  @Qualifier("minioPublic")
-  public MinioClient minioPublic(MinioProperties props) {
+  @Qualifier("minioPublic") public MinioClient minioPublic(MinioProperties props) {
     return MinioClient.builder()
         .endpoint(props.publicEndpoint())
         .credentials(props.accessKey(), props.secretKey())

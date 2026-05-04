@@ -8,19 +8,19 @@ Build a backend service that ingests, indexes, and serves PDFs up to **500 MB** 
 
 ## 2. Hard constraints (non-negotiable)
 
-| Constraint | Value | Source |
-|---|---|---|
-| JVM heap | `-Xmx50m -Xms50m` | README §"Memory Limitation" |
-| Max file size | 500 MB | README §"Upload Endpoint" |
-| Concurrent uploads | 10 (each up to 500 MB) | README §"Concurrent Uploads" |
-| Java | 17 (Java 8+ acceptable) | pom.xml |
-| Spring Boot | 3.4.3 | pom.xml |
-| Storage backend | MinIO (S3-compatible) | README + `docs/minio-local-setup.md` |
-| Bucket layout | `document-bucket/{user}/...` | README §"Upload Endpoint" |
-| DB | PostgreSQL (bitnami/postgresql:15.4.0) | `docker/docker-compose.yml` |
-| Stack startup | `docker compose up --build` | README §"Implementation Instructions" |
-| Schema script | `docker/init-scripts/schema-init.sql` | README §"Implementation Instructions" |
-| Config externalization | All sensitive values via env vars | README §"Note" |
+|       Constraint       |                 Value                  |                Source                 |
+|------------------------|----------------------------------------|---------------------------------------|
+| JVM heap               | `-Xmx50m -Xms50m`                      | README §"Memory Limitation"           |
+| Max file size          | 500 MB                                 | README §"Upload Endpoint"             |
+| Concurrent uploads     | 10 (each up to 500 MB)                 | README §"Concurrent Uploads"          |
+| Java                   | 17 (Java 8+ acceptable)                | pom.xml                               |
+| Spring Boot            | 3.4.3                                  | pom.xml                               |
+| Storage backend        | MinIO (S3-compatible)                  | README + `docs/minio-local-setup.md`  |
+| Bucket layout          | `document-bucket/{user}/...`           | README §"Upload Endpoint"             |
+| DB                     | PostgreSQL (bitnami/postgresql:15.4.0) | `docker/docker-compose.yml`           |
+| Stack startup          | `docker compose up --build`            | README §"Implementation Instructions" |
+| Schema script          | `docker/init-scripts/schema-init.sql`  | README §"Implementation Instructions" |
+| Config externalization | All sensitive values via env vars      | README §"Note"                        |
 
 ## 3. Performance budget (derived from §2)
 
@@ -107,13 +107,13 @@ Run before every commit (in order):
 
 ## 11. Open contract questions (resolved as we go)
 
-| Q | Decision | Where |
-|---|---|---|
-| OpenAPI says upload is `application/json` — but a 500 MB PDF in JSON is impractical. Do we deviate to `multipart/form-data`? | **Yes**, deviate | ADR-0011 |
-| Should document name be unique per user? | **No** — UUID id disambiguates; key is `{user}/{id}__{name}.pdf` | ADR-0004 |
-| Tag normalization (case, trim, length, charset)? | lower-case, trim, max 64 chars, `[a-z0-9_-]+` | ADR-0009 |
-| Presigned URL TTL? | 15 min, configurable | ADR-0004 |
-| Bucket name? | `document-bucket`, configurable | ADR-0004 |
+|                                                              Q                                                               |                             Decision                             |  Where   |
+|------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|----------|
+| OpenAPI says upload is `application/json` — but a 500 MB PDF in JSON is impractical. Do we deviate to `multipart/form-data`? | **Yes**, deviate                                                 | ADR-0011 |
+| Should document name be unique per user?                                                                                     | **No** — UUID id disambiguates; key is `{user}/{id}__{name}.pdf` | ADR-0004 |
+| Tag normalization (case, trim, length, charset)?                                                                             | lower-case, trim, max 64 chars, `[a-z0-9_-]+`                    | ADR-0009 |
+| Presigned URL TTL?                                                                                                           | 15 min, configurable                                             | ADR-0004 |
+| Bucket name?                                                                                                                 | `document-bucket`, configurable                                  | ADR-0004 |
 
 ## 12. Submission checklist (final)
 
@@ -126,3 +126,4 @@ Run before every commit (in order):
 - [ ] Postman collection exported to `docs/postman/`
 - [ ] Clean Conventional Commits history
 - [ ] Pushed to a **fresh personal** GitHub repo (never to the cloned template — it is reused across candidates), full incremental commit history preserved, URL ready to share
+

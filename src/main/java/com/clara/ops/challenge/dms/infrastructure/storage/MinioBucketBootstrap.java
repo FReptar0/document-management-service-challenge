@@ -28,8 +28,7 @@ public class MinioBucketBootstrap implements ApplicationRunner {
 
   @Override
   public void run(ApplicationArguments args) throws Exception {
-    boolean exists =
-        client.bucketExists(BucketExistsArgs.builder().bucket(props.bucket()).build());
+    boolean exists = client.bucketExists(BucketExistsArgs.builder().bucket(props.bucket()).build());
     if (exists) {
       log.info("MinIO bucket '{}' already present", props.bucket());
       return;

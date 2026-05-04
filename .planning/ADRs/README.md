@@ -4,20 +4,20 @@ This directory captures every non-trivial design decision for the Document Manag
 
 ## Index
 
-| ID | Title | Status |
-|---|---|---|
-| 0001 | Hexagonal-lite architecture | Accepted |
+|  ID  |                                        Title                                        |  Status  |
+|------|-------------------------------------------------------------------------------------|----------|
+| 0001 | Hexagonal-lite architecture                                                         | Accepted |
 | 0002 | Streaming uploads — bypass Spring multipart, use commons-fileupload2 on raw request | Accepted |
-| 0003 | Normalized schema with documents/tags/document_tags + targeted indices | Accepted |
-| 0004 | MinIO storage, deterministic object keys, 15-min presigned GET URLs | Accepted |
-| 0005 | Synchronous request lifecycle, sized Tomcat thread pool, no async | Accepted |
-| 0006 | Global @RestControllerAdvice with RFC 7807 ProblemDetail | Accepted |
-| 0007 | Layered tests with Testcontainers and a heap-bounded concurrency test | Accepted |
-| 0008 | Externalized config via env vars, layered application.yml, no secrets in source | Accepted |
-| 0009 | Jakarta Bean Validation + dedicated DTOs at the web edge | Accepted |
-| 0010 | Structured logging with MDC, Actuator health, Springdoc OpenAPI UI | Accepted |
-| 0011 | Upload accepts multipart/form-data (deviates from OpenAPI's application/json) | Accepted |
-| 0012 | Container memory limit set above heap to allow JVM startup overhead | Accepted |
+| 0003 | Normalized schema with documents/tags/document_tags + targeted indices              | Accepted |
+| 0004 | MinIO storage, deterministic object keys, 15-min presigned GET URLs                 | Accepted |
+| 0005 | Synchronous request lifecycle, sized Tomcat thread pool, no async                   | Accepted |
+| 0006 | Global @RestControllerAdvice with RFC 7807 ProblemDetail                            | Accepted |
+| 0007 | Layered tests with Testcontainers and a heap-bounded concurrency test               | Accepted |
+| 0008 | Externalized config via env vars, layered application.yml, no secrets in source     | Accepted |
+| 0009 | Jakarta Bean Validation + dedicated DTOs at the web edge                            | Accepted |
+| 0010 | Structured logging with MDC, Actuator health, Springdoc OpenAPI UI                  | Accepted |
+| 0011 | Upload accepts multipart/form-data (deviates from OpenAPI's application/json)       | Accepted |
+| 0012 | Container memory limit set above heap to allow JVM startup overhead                 | Accepted |
 
 ## Conventions
 

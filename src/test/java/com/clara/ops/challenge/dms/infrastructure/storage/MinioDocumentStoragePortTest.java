@@ -29,8 +29,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 class MinioDocumentStoragePortTest {
 
-  @Container
-  static MinIOContainer minio = new MinIOContainer("minio/minio:latest");
+  @Container static MinIOContainer minio = new MinIOContainer("minio/minio:latest");
 
   private static MinioDocumentStoragePort storage;
   private static String bucket;

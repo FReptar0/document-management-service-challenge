@@ -45,10 +45,8 @@ public class MinioDocumentStoragePort implements DocumentStoragePort {
   public void put(InputStream content, String objectKey, String contentType) {
     try {
       internalClient.putObject(
-          PutObjectArgs.builder()
-              .bucket(props.bucket())
-              .object(objectKey)
-              .stream(content, UNKNOWN_TOTAL_SIZE, PART_SIZE_BYTES)
+          PutObjectArgs.builder().bucket(props.bucket()).object(objectKey).stream(
+                  content, UNKNOWN_TOTAL_SIZE, PART_SIZE_BYTES)
               .contentType(contentType)
               .build());
     } catch (Exception e) {
