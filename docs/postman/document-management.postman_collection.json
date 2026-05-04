@@ -1,0 +1,233 @@
+{
+  "info": {
+    "name": "Document Management Service",
+    "description": "Manual exploration collection for the document-management API. Three endpoints (upload, search, download), pre-wired against the Document Management Service environment file. Adjust `baseUrl` if the service is exposed elsewhere.\n\nMultipart upload: the request below ships `metadata` first, then a sample tiny PDF inline. For real PDFs, switch the file part to a binary attachment via the form-data UI.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/actuator/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["actuator", "health"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Upload — 201 happy path",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('id present', () => pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.collectionVariables.set('lastDocumentId', body.id);",
+              "pm.test('size matches payload', () => pm.expect(body.size).to.be.greaterThan(0));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "metadata",
+              "type": "text",
+              "value": "{\n  \"user\": \"alice\",\n  \"name\": \"Quarterly Report.pdf\",\n  \"tags\": [\"finance\", \"q3\"]\n}",
+              "contentType": "application/json"
+            },
+            {
+              "key": "file",
+              "type": "file",
+              "src": [],
+              "contentType": "application/pdf",
+              "description": "Pick a real .pdf from disk. (The test against the running stack uses the streaming pipeline so 500 MB files are fine.)"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/document-management/upload",
+          "host": ["{{baseUrl}}"],
+          "path": ["document-management", "upload"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Upload — 415 magic-byte mismatch",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 415', () => pm.response.to.have.status(415));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "metadata",
+              "type": "text",
+              "value": "{\n  \"user\": \"alice\",\n  \"name\": \"not-a-pdf.pdf\",\n  \"tags\": []\n}",
+              "contentType": "application/json"
+            },
+            {
+              "key": "file",
+              "type": "file",
+              "src": [],
+              "contentType": "application/pdf",
+              "description": "Attach a non-PDF (e.g. a .png) to trigger the magic-byte sniff guard."
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/document-management/upload",
+          "host": ["{{baseUrl}}"],
+          "path": ["document-management", "upload"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Search — by user with pagination",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('metadata fields present', () => {",
+              "  pm.expect(body.metadata).to.have.property('currentPage');",
+              "  pm.expect(body.metadata).to.have.property('itemsPerPage');",
+              "  pm.expect(body.metadata).to.have.property('currentItems');",
+              "  pm.expect(body.metadata).to.have.property('totalPages');",
+              "  pm.expect(body.metadata).to.have.property('totalItems');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": \"alice\",\n  \"tags\": [\"finance\"]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/document-management/search?page=0&size=20",
+          "host": ["{{baseUrl}}"],
+          "path": ["document-management", "search"],
+          "query": [
+            {"key": "page", "value": "0"},
+            {"key": "size", "value": "20"}
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Search — substring on name",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"report\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/document-management/search?page=0&size=20",
+          "host": ["{{baseUrl}}"],
+          "path": ["document-management", "search"],
+          "query": [
+            {"key": "page", "value": "0"},
+            {"key": "size", "value": "20"}
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Download — presigned URL by id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('url present', () => pm.expect(body.url).to.be.a('string').and.match(/^https?:/));",
+              "console.log('Presigned URL:', body.url);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/document-management/download/{{lastDocumentId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["document-management", "download", "{{lastDocumentId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Download — 404 unknown id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 404', () => pm.response.to.have.status(404));",
+              "pm.test('ProblemDetail shape', () => {",
+              "  const pd = pm.response.json();",
+              "  pm.expect(pd.status).to.eql(404);",
+              "  pm.expect(pd.title).to.be.a('string');",
+              "  pm.expect(pd.documentId).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/document-management/download/00000000-0000-0000-0000-000000000000",
+          "host": ["{{baseUrl}}"],
+          "path": ["document-management", "download", "00000000-0000-0000-0000-000000000000"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {"key": "lastDocumentId", "value": ""}
+  ]
+}
