@@ -22,12 +22,20 @@ import org.springframework.context.annotation.Primary;
 @EnableConfigurationProperties(MinioProperties.class)
 public class MinioConfiguration {
 
+  /**
+   * MinIO's default region. Setting it explicitly avoids a {@code GetBucketLocation} round-trip the
+   * first time the SDK has to sign a request — that round-trip is what causes presign to fail from
+   * a container that cannot reach the public endpoint host.
+   */
+  private static final String REGION = "us-east-1";
+
   @Bean
   @Primary
   public MinioClient minioInternal(MinioProperties props) {
     return MinioClient.builder()
         .endpoint(props.endpoint())
         .credentials(props.accessKey(), props.secretKey())
+        .region(REGION)
         .build();
   }
 
@@ -36,6 +44,7 @@ public class MinioConfiguration {
     return MinioClient.builder()
         .endpoint(props.publicEndpoint())
         .credentials(props.accessKey(), props.secretKey())
+        .region(REGION)
         .build();
   }
 }
