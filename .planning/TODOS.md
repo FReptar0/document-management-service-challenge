@@ -44,14 +44,14 @@
 - [x] Commits — split into atomic units (`chore(deps)`, `feat(config)`, `chore(config)`, `feat(infra)`, `docs(adr)`, `fix(infra)`)
 
 ## Phase 2 — Schema
-- [ ] Design + write `docker/init-scripts/schema-init.sql`
-  - [ ] `documents` (id UUID PK, user_id, name, object_key UNIQUE, file_size, file_type, created_at)
-  - [ ] `tags` (id BIGSERIAL, name UNIQUE, max 64 chars)
-  - [ ] `document_tags` (document_id, tag_id) — composite PK
-  - [ ] Indices: `documents(user_id, created_at DESC)`, `documents(name) gin_trgm`, `document_tags(tag_id, document_id)`
-  - [ ] `CREATE EXTENSION IF NOT EXISTS pg_trgm`
-- [ ] Verify schema applied: `docker exec ... psql -c '\dt document_schema.*'`
-- [ ] Commit: `feat(db): documents/tags schema with required indices`
+- [x] Design + write `docker/init-scripts/schema-init.sql`
+  - [x] `documents` (id UUID PK, user_id, name, object_key UNIQUE, file_size, file_type, created_at)
+  - [x] `tags` (id BIGSERIAL, name UNIQUE, max 64 chars)
+  - [x] `document_tags` (document_id, tag_id) — composite PK
+  - [x] Indices: `documents(user_id, created_at DESC)`, `documents(name) gin_trgm`, `document_tags(tag_id, document_id)`
+  - [x] `CREATE EXTENSION IF NOT EXISTS pg_trgm`
+- [x] Verify schema applied: 3 tables + 8 indices + pg_trgm 1.6 confirmed via psql
+- [x] Commit: `feat(db): documents/tags schema with indices and pg_trgm`
 
 ## Phase 3 — Domain + Persistence
 - [ ] Package layout under `com.clara.ops.challenge.dms`: `domain/`, `application/`, `infrastructure/{web,persistence,storage,config}`
