@@ -5,21 +5,25 @@ import com.clara.ops.challenge.dms.application.UploadDocumentUseCase.UploadComma
 import com.clara.ops.challenge.dms.domain.Document;
 import com.clara.ops.challenge.dms.infrastructure.web.dto.DocumentResponse;
 import com.clara.ops.challenge.dms.infrastructure.web.dto.UploadMetadataRequest;
+import com.clara.ops.challenge.dms.infrastructure.web.multipart.InvalidMetadataException;
 import com.clara.ops.challenge.dms.infrastructure.web.multipart.MissingMultipartPartException;
 import com.clara.ops.challenge.dms.infrastructure.web.multipart.MultipartOrderViolationException;
 import com.clara.ops.challenge.dms.infrastructure.web.multipart.MultipartParseException;
 import com.clara.ops.challenge.dms.infrastructure.web.multipart.MultipartStreamReader;
+import com.clara.ops.challenge.dms.infrastructure.web.multipart.PayloadTooLargeException;
 import com.clara.ops.challenge.dms.infrastructure.web.multipart.PdfMagicByteSniffer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.fileupload2.core.FileItemInput;
 import org.apache.commons.fileupload2.core.FileItemInputIterator;
+import org.apache.commons.fileupload2.core.FileUploadException;
+import org.apache.commons.fileupload2.core.FileUploadSizeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -65,7 +69,7 @@ public class DocumentController {
   }
 
   @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ResponseEntity<DocumentResponse> upload(HttpServletRequest request) throws IOException {
+  public ResponseEntity<DocumentResponse> upload(HttpServletRequest request) {
     if (!MultipartStreamReader.isMultipartContent(request)) {
       throw new MultipartParseException(
           "Request is not multipart/form-data",
@@ -76,24 +80,32 @@ public class DocumentController {
     UploadMetadataRequest metadata = null;
     Document saved = null;
 
-    while (parts.hasNext()) {
-      FileItemInput part = parts.next();
-      String fieldName = part.getFieldName();
+    try {
+      while (parts.hasNext()) {
+        FileItemInput part = parts.next();
+        String fieldName = part.getFieldName();
 
-      if (METADATA_PART.equals(fieldName) && part.isFormField()) {
-        metadata = readAndValidateMetadata(part);
-      } else if (FILE_PART.equals(fieldName) && !part.isFormField()) {
-        if (metadata == null) {
-          throw new MultipartOrderViolationException(
-              "'metadata' part must arrive before 'file' (ADR-0011)");
+        if (METADATA_PART.equals(fieldName) && part.isFormField()) {
+          metadata = readAndValidateMetadata(part);
+        } else if (FILE_PART.equals(fieldName) && !part.isFormField()) {
+          if (metadata == null) {
+            throw new MultipartOrderViolationException(
+                "'metadata' part must arrive before 'file' (ADR-0011)");
+          }
+          saved = streamFileAndPersist(part, metadata);
+        } else {
+          log.debug(
+              "Ignoring unexpected multipart part: name={} formField={}",
+              fieldName,
+              part.isFormField());
         }
-        saved = streamFileAndPersist(part, metadata);
-      } else {
-        log.debug(
-            "Ignoring unexpected multipart part: name={} formField={}",
-            fieldName,
-            part.isFormField());
       }
+    } catch (FileUploadSizeException e) {
+      throw new PayloadTooLargeException(e.getMessage());
+    } catch (FileUploadException e) {
+      throw new MultipartParseException("Failed to parse multipart envelope", e);
+    } catch (IOException e) {
+      throw new MultipartParseException("I/O error while reading multipart request", e);
     }
 
     if (metadata == null) {
@@ -112,7 +124,11 @@ public class DocumentController {
     }
     Set<ConstraintViolation<UploadMetadataRequest>> violations = validator.validate(dto);
     if (!violations.isEmpty()) {
-      throw new ConstraintViolationException(violations);
+      String detail =
+          violations.stream()
+              .map(v -> v.getPropertyPath() + " " + v.getMessage())
+              .collect(Collectors.joining("; "));
+      throw new InvalidMetadataException("metadata validation failed: " + detail);
     }
     return dto;
   }
