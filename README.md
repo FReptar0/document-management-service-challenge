@@ -1,3 +1,91 @@
+# Document Management API — Submission
+
+> Solution to the Clara document-management challenge. The original brief is preserved below in [§ Document Management API Challenge](#-document-management-api-challenge).
+
+## TL;DR
+
+A Spring Boot 3.4 / Java 17 service that uploads, searches, and downloads PDFs up to 500 MB while staying inside a 50 MB JVM heap, with at least 10 concurrent uploads supported. Streaming end-to-end (no buffering of the file body), Postgres for metadata, MinIO for objects, presigned URLs for downloads.
+
+## Quick start
+
+```bash
+cp .env.example .env                 # fill in any placeholders if needed
+docker compose -f docker/docker-compose.yml up --build
+curl http://localhost:8080/actuator/health   # → {"status":"UP"}
+```
+
+The OpenAPI UI is exposed at `http://localhost:8080/swagger-ui.html`. Configuration knobs (heap size, presigned-URL TTL, max upload size, PDF magic-byte enforcement) are in `.env.example`.
+
+## Run the test suite
+
+```bash
+./mvnw verify
+```
+
+35 tests across unit and integration layers. Integration tests spin up Postgres and MinIO via Testcontainers — Docker must be running. Includes a 10-way concurrent upload stress test that fires 10 × 10 MB streams simultaneously.
+
+## API contract
+
+| Method |                   Path                    |                Purpose                |
+|--------|-------------------------------------------|---------------------------------------|
+| `POST` | `/document-management/upload`             | Streams a PDF + metadata, returns 201 |
+| `POST` | `/document-management/search?page=&size=` | Filters by user/name/tags, paginated  |
+| `GET`  | `/document-management/download/{id}`      | Returns a presigned GET URL           |
+
+The upload endpoint takes `multipart/form-data` with two parts in order: `metadata` (application/json, matching the OpenAPI `UploadDocument` schema) and `file` (application/pdf). See [ADR-0011](.planning/ADRs/0011-api-contract-deviation-multipart.md) for why this deviates from the spec's JSON-only contract.
+
+Errors follow RFC 7807 `application/problem+json` (title, status, detail, plus extensions like `documentId`, `requestId`, `path`). Every response carries an `X-Request-Id` header for correlation.
+
+## Architecture
+
+Hexagonal-lite (see [ADR-0001](.planning/ADRs/0001-hexagonal-lite-architecture.md)):
+
+```
+src/main/java/com/clara/ops/challenge/dms/
+├── domain/                 # Document, Tag, port interfaces, exceptions — no Spring imports
+├── application/            # Use cases (Upload, Search, Download), value types — no Spring imports
+└── infrastructure/         # Spring + JPA + MinIO live here
+    ├── web/                # Controllers, DTOs, multipart parser, request-id filter, advice
+    ├── persistence/        # JPA entities, adapter, criteria builders
+    ├── storage/            # MinIO adapter (dual MinioClient: internal + public)
+    └── config/             # @Configuration glue
+```
+
+Twelve ADRs in [`.planning/ADRs/`](.planning/ADRs) document each design decision. Highest-leverage ones to skim:
+
+- **0002** — streaming uploads bypass Spring's multipart resolver via `commons-fileupload2-jakarta` so the heap stays bounded.
+- **0004** — two `MinioClient` beans so presigned URLs are signed against the public host the client will reach.
+- **0011** — multipart deviation from the OpenAPI JSON-only upload.
+- **0012** — container memory (256 MB) is intentionally larger than heap (50 MB); a literal 50 MB container OOMs the JVM before it boots.
+
+## Deviations from the brief
+
+1. **Upload is multipart, not JSON.** A 500 MB PDF cannot be base64-encoded in JSON inside a 50 MB heap; the OpenAPI spec is interpreted as incomplete. Documented in ADR-0011 and the local OpenAPI YAML.
+2. **Container memory is 256 MB, JVM heap is 50 MB.** The README phrases the cap as "50 MB assigned to the document management service container," which would OOM the JVM before launch. The hard constraint that matters in practice is the JVM heap, which is held at 50 MB via `JAVA_OPTS=-Xmx50m -Xms50m -XX:+ExitOnOutOfMemoryError`. Documented in ADR-0012.
+3. **Postgres image is `bitnamilegacy/postgresql:15.4.0`.** Bitnami removed old patch tags from `bitnami/postgresql` in 2024; the legacy registry is the byte-identical mirror. Documented in `.planning/GOTCHAS.md`.
+
+## Run locally without Docker
+
+The maven wrapper expects a JDK 17 toolchain on PATH:
+
+```bash
+./mvnw spring-boot:run \
+  -Dspring-boot.run.arguments="--spring.profiles.active=local"
+```
+
+Postgres + MinIO must be reachable; the easiest path is to run only the dependencies via compose: `docker compose -f docker/docker-compose.yml up postgresql minio`.
+
+## Implementation log
+
+The full incremental commit history (atomic per decision, no co-author trailers) tells the story phase-by-phase. Planning artifacts:
+
+- [`.planning/ROADMAP.md`](.planning/ROADMAP.md) — phase breakdown
+- [`.planning/TODOS.md`](.planning/TODOS.md) — checked-off task list
+- [`.planning/GOTCHAS.md`](.planning/GOTCHAS.md) — bugs found during implementation
+- [`.planning/ADRs/`](.planning/ADRs) — twelve numbered decision records
+
+---
+
 # 📄 Document Management API Challenge
 
 ## Overview 🚀
