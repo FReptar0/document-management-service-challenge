@@ -15,39 +15,49 @@ paths:
       tags:
         - Document Management
       operationId: uploadDocument
+      description: >-
+        Uploads a PDF document with metadata. Deviates from the original
+        application/json contract: a 500 MB PDF cannot be base64-encoded inside
+        a 50 MB heap, so the request body is multipart/form-data with two parts
+        in fixed order — `metadata` (application/json) followed by `file`
+        (application/pdf). See ADR-0011 for the rationale and ADR-0002 for the
+        streaming-parser strategy that keeps the heap bounded.
       requestBody:
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: '#/components/schemas/UploadDocument'
+              $ref: '#/components/schemas/UploadDocumentMultipart'
+            encoding:
+              metadata:
+                contentType: application/json
+              file:
+                contentType: application/pdf
         required: true
       responses:
         '201':
           description: The document was uploaded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
         '400':
-          description: Bad Request
+          description: Bad Request — malformed multipart, invalid metadata, or wrong part order.
           content:
-            '*/*':
+            application/problem+json:
               schema:
-                type: object
-        '401':
-          description: Unauthorized
+                $ref: '#/components/schemas/ProblemDetail'
+        '413':
+          description: Payload Too Large — file exceeds the configured upload limit (default 500 MB).
           content:
-            '*/*':
+            application/problem+json:
               schema:
-                type: object
-        '403':
-          description: Forbidden
+                $ref: '#/components/schemas/ProblemDetail'
+        '415':
+          description: Unsupported Media Type — the `file` part is not a PDF (rejected by magic-byte sniff).
           content:
-            '*/*':
+            application/problem+json:
               schema:
-                type: object
-        '404':
-          description: Not Found
-          content:
-            '*/*':
-              schema:
-                type: object
+                $ref: '#/components/schemas/ProblemDetail'
         '409':
           description: Conflict
           content:
@@ -216,7 +226,47 @@ components:
           items:
             type: string
             description: The document tags.
-      description: The request to upload a document.
+      description: >-
+        Metadata payload sent in the `metadata` part of the multipart upload
+        request. Tags are normalized server-side (lower-cased, trimmed, max 64
+        chars, charset `[a-z0-9_-]+`) — see ADR-0009.
+    UploadDocumentMultipart:
+      required:
+        - metadata
+        - file
+      type: object
+      properties:
+        metadata:
+          $ref: '#/components/schemas/UploadDocument'
+        file:
+          type: string
+          format: binary
+          description: PDF payload (application/pdf, max 500 MB).
+      description: >-
+        Multipart wrapper for the upload endpoint. Parts must be sent in this
+        exact order — `metadata` first, then `file` — because the server reads
+        the stream left-to-right without buffering the file (ADR-0002).
+    ProblemDetail:
+      type: object
+      description: RFC 7807 error response.
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+        path:
+          type: string
+        requestId:
+          type: string
+          description: Echoed `X-Request-Id` header for log correlation.
     DocumentSearchFilters:
       type: object
       properties:
