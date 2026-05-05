@@ -40,11 +40,12 @@ A ready-to-import collection lives under [`docs/postman/`](docs/postman/) — se
 ./mvnw verify
 ```
 
-36 tests across unit and integration layers. Integration tests spin up Postgres and MinIO via Testcontainers — Docker must be running. Highlights:
+40 tests across unit and integration layers (`./mvnw test`). Integration tests spin up Postgres and MinIO via Testcontainers — Docker must be running. Highlights:
 
-- **10-way concurrent upload stress test** — 10 × 10 MB streams in parallel, asserts every request returns 201 and every row lands.
+- **Concurrent streaming upload stress test** — 10 × 10 MB uploads in parallel with both client- and server-side streaming bodies (no `byte[]` allocation of the payload on either side). The binding heap check is the production container, which boots under `-Xmx50m` and would OOM-kill on the first request if the upload path buffered. See [ADR-0007](.planning/ADRs/0007-testing-strategy.md).
 - **Tag normalization E2E** — three uploads with `Finance`/`FINANCE`/`"  finance  "` collapse to a single dictionary row and all three are findable via the canonical name.
 - **Full lifecycle E2E** — upload → search → download → fetch presigned URL, byte-identical round-trip.
+- **Use-case unit tests** — `UploadDocumentUseCase` (compensation on DB failure), `SearchDocumentsUseCase` (criteria pass-through), `GetDownloadUrlUseCase` (404 vs presigned URL).
 
 ## API contract
 

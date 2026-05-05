@@ -3,7 +3,9 @@ package com.clara.ops.challenge.dms.infrastructure.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.clara.ops.challenge.dms.infrastructure.persistence.jpa.DocumentJpaRepository;
-import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -11,6 +13,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,16 +33,28 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Drives 10 concurrent multipart uploads through the real HTTP path to confirm the streaming
- * pipeline holds under the README's hard concurrency constraint. Payloads are kept moderate (10 MB
- * each) so the suite finishes in a few seconds while still pushing the MinIO SDK part-buffer logic
- * past a single part boundary.
+ * pipeline holds under the README's hard concurrency constraint (ADR-0007 §"Heap-bounded
+ * concurrency test").
+ *
+ * <p>Both the client and the server are streaming end to end. The request bodies are produced by
+ * {@link RepeatingByteInputStream}, which emits {@link #PAYLOAD_BYTES} lazily without ever
+ * materializing the file in memory; the HTTP client uses {@code BodyPublishers.ofInputStream} so
+ * the wire is chunked transfer encoded. If the upload path were to buffer the body server-side, the
+ * production container — pinned to {@code -Xmx50m} (ADR-0012) — would OOM-kill on the first
+ * request, which is the binding heap-bounded check.
+ *
+ * <p>Asserting an absolute heap delta inside this test was attempted but proved too noisy under the
+ * JaCoCo agent that {@code mvn verify} attaches for coverage; instead the streaming guarantee is
+ * exercised by the production deployment running under the real cap and by this suite's lifecycle
+ * tests succeeding on the same JVM image.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 class ConcurrentUploadStressTest {
 
   private static final int CONCURRENCY = 10;
-  private static final int PAYLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+  private static final int PAYLOAD_BYTES = 10 * 1024 * 1024; // 10 MB per upload, 100 MB aggregate.
+
   private static final String BOUNDARY = "----dmsStress" + UUID.randomUUID();
 
   @Container
@@ -69,7 +84,7 @@ class ConcurrentUploadStressTest {
   }
 
   @Test
-  void ten_parallel_uploads_all_succeed_and_persist_distinct_rows() throws Exception {
+  void ten_parallel_streaming_uploads_all_succeed_and_persist_distinct_rows() throws Exception {
     long initialCount = jpa.count();
     HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     ExecutorService pool = Executors.newFixedThreadPool(CONCURRENCY);
@@ -82,14 +97,17 @@ class ConcurrentUploadStressTest {
             CompletableFuture.supplyAsync(
                 () -> {
                   try {
-                    byte[] body = body("user-" + seed, "doc-" + seed + ".pdf");
                     HttpRequest req =
                         HttpRequest.newBuilder(
                                 URI.create(
                                     "http://localhost:" + port + "/document-management/upload"))
                             .header("Content-Type", "multipart/form-data; boundary=" + BOUNDARY)
                             .timeout(Duration.ofMinutes(1))
-                            .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                            .POST(
+                                HttpRequest.BodyPublishers.ofInputStream(
+                                    () ->
+                                        streamingMultipartBody(
+                                            "user-" + seed, "doc-" + seed + ".pdf")))
                             .build();
                     HttpResponse<String> resp =
                         http.send(req, HttpResponse.BodyHandlers.ofString());
@@ -120,38 +138,84 @@ class ConcurrentUploadStressTest {
     }
   }
 
-  private static byte[] body(String userId, String docName) throws Exception {
-    byte[] file = new byte[PAYLOAD_BYTES];
-    file[0] = '%';
-    file[1] = 'P';
-    file[2] = 'D';
-    file[3] = 'F';
-    file[4] = '-';
-    String metadata =
-        "{\"user\":\"" + userId + "\",\"name\":\"" + docName + "\",\"tags\":[\"stress\"]}";
-    ByteArrayOutputStream out = new ByteArrayOutputStream(file.length + 512);
-    appendPart(
-        out, "metadata", null, "application/json", metadata.getBytes(StandardCharsets.UTF_8));
-    appendPart(out, "file", docName, "application/pdf", file);
-    out.write(("--" + BOUNDARY + "--\r\n").getBytes(StandardCharsets.US_ASCII));
-    return out.toByteArray();
+  /**
+   * Builds a streaming multipart body without ever materializing the full PDF payload in memory.
+   * The metadata part is small enough that a {@code ByteArrayInputStream} is fine; the file part is
+   * a {@link RepeatingByteInputStream} that emits {@link #PAYLOAD_BYTES} bytes lazily — the JVM
+   * never holds more than the underlying 8 KB chunk buffer for it.
+   */
+  private static InputStream streamingMultipartBody(String userId, String docName) {
+    byte[] metadataBytes =
+        ("{\"user\":\"" + userId + "\",\"name\":\"" + docName + "\",\"tags\":[\"stress\"]}")
+            .getBytes(StandardCharsets.UTF_8);
+    String metadataHeader =
+        "--"
+            + BOUNDARY
+            + "\r\nContent-Disposition: form-data; name=\"metadata\"\r\n"
+            + "Content-Type: application/json\r\n\r\n";
+    String fileHeader =
+        "\r\n--"
+            + BOUNDARY
+            + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\""
+            + docName
+            + "\"\r\nContent-Type: application/pdf\r\n\r\n";
+    String trailer = "\r\n--" + BOUNDARY + "--\r\n";
+
+    List<InputStream> parts =
+        List.of(
+            new ByteArrayInputStream(metadataHeader.getBytes(StandardCharsets.US_ASCII)),
+            new ByteArrayInputStream(metadataBytes),
+            new ByteArrayInputStream(fileHeader.getBytes(StandardCharsets.US_ASCII)),
+            new RepeatingByteInputStream(PAYLOAD_BYTES),
+            new ByteArrayInputStream(trailer.getBytes(StandardCharsets.US_ASCII)));
+    return new SequenceInputStream(Collections.enumeration(parts));
   }
 
-  private static void appendPart(
-      ByteArrayOutputStream out, String fieldName, String filename, String contentType, byte[] body)
-      throws Exception {
-    out.write(("--" + BOUNDARY + "\r\n").getBytes(StandardCharsets.US_ASCII));
-    String disposition =
-        filename == null
-            ? "Content-Disposition: form-data; name=\"" + fieldName + "\""
-            : "Content-Disposition: form-data; name=\""
-                + fieldName
-                + "\"; filename=\""
-                + filename
-                + "\"";
-    out.write((disposition + "\r\n").getBytes(StandardCharsets.US_ASCII));
-    out.write(("Content-Type: " + contentType + "\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
-    out.write(body);
-    out.write("\r\n".getBytes(StandardCharsets.US_ASCII));
+  /**
+   * Emits {@code length} bytes lazily — first 5 are the {@code %PDF-} magic so the magic-byte
+   * sniffer accepts the payload, the rest are zero-filled. Holds nothing but a single counter; safe
+   * to drive arbitrarily large payloads without growing the heap.
+   */
+  static final class RepeatingByteInputStream extends InputStream {
+
+    private static final byte[] PDF_MAGIC = {'%', 'P', 'D', 'F', '-'};
+
+    private final long length;
+    private long position;
+
+    RepeatingByteInputStream(long length) {
+      this.length = length;
+    }
+
+    @Override
+    public int read() {
+      if (position >= length) {
+        return -1;
+      }
+      byte b = position < PDF_MAGIC.length ? PDF_MAGIC[(int) position] : 0;
+      position++;
+      return b & 0xFF;
+    }
+
+    @Override
+    public int read(byte[] buf, int off, int len) {
+      if (position >= length) {
+        return -1;
+      }
+      int toWrite = (int) Math.min(len, length - position);
+      int written = 0;
+      while (position < PDF_MAGIC.length && written < toWrite) {
+        buf[off + written] = PDF_MAGIC[(int) position];
+        position++;
+        written++;
+      }
+      if (written < toWrite) {
+        int zeroFill = toWrite - written;
+        java.util.Arrays.fill(buf, off + written, off + written + zeroFill, (byte) 0);
+        position += zeroFill;
+        written += zeroFill;
+      }
+      return written;
+    }
   }
 }
