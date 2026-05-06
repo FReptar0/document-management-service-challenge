@@ -37,7 +37,9 @@ A ready-to-import collection lives under [`docs/postman/`](docs/postman/) — se
 ## Run the test suite
 
 ```bash
-./mvnw verify
+./mvnw verify   # Spotless format check + tests + JaCoCo coverage report
+# Test results:    target/surefire-reports/
+# Coverage HTML:   target/site/jacoco/index.html
 ```
 
 40 tests across unit and integration layers (`./mvnw test`). Integration tests spin up Postgres and MinIO via Testcontainers — Docker must be running. Highlights:
@@ -46,6 +48,10 @@ A ready-to-import collection lives under [`docs/postman/`](docs/postman/) — se
 - **Tag normalization E2E** — three uploads with `Finance`/`FINANCE`/`"  finance  "` collapse to a single dictionary row and all three are findable via the canonical name.
 - **Full lifecycle E2E** — upload → search → download → fetch presigned URL, byte-identical round-trip.
 - **Use-case unit tests** — `UploadDocumentUseCase` (compensation on DB failure), `SearchDocumentsUseCase` (criteria pass-through), `GetDownloadUrlUseCase` (404 vs presigned URL).
+
+### Quality report
+
+A snapshot of the latest run (test counts per class + JaCoCo line/branch/method coverage + Spotless status) is committed at [`docs/reports/quality-report.md`](docs/reports/quality-report.md). Regenerate with `./mvnw verify` and open `target/site/jacoco/index.html` for the interactive coverage drilldown.
 
 ## API contract
 
